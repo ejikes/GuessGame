@@ -1,131 +1,167 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>GuessMaster · Simple Party Game</title>
-  <link rel="stylesheet" href="./styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="/socket.io/socket.io.js"></script>
-</head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <header>
-      <h1>🎲 GuessMaster</h1>
-      <div id="connectionStatus" class="connection-badge">
-        <span class="dot"></span>
-        <span id="statusText">Connecting</span>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main>
-      <!-- Left Column: Players & Join -->
-      <section class="left-col">
-        <!-- Join Card (hidden after joining) -->
-        <div id="joinCard" class="card">
-          <h2>👋 Join the Game</h2>
-          <form id="joinForm">
-            <input type="text" id="playerName" placeholder="Your name" maxlength="20" autocomplete="off" required>
-            <button type="submit" class="btn btn-primary full-width">Join Game</button>
-          </form>
-          <p class="note">First to join becomes Game Master 👑</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes"
+    />
+    <title>GuessMaster · Simple Party Game</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header>
+        <h1>🎲 GuessMaster</h1>
+        <div id="connectionStatus" class="connection-badge">
+          <span class="dot"></span>
+          <span id="statusText">Connecting</span>
         </div>
+      </header>
 
-        <!-- Players List -->
-        <div class="card">
-          <h2>👥 Players <span id="playerCount">0</span></h2>
-          <ul id="playerList" class="player-list">
-            <li class="empty-msg">No players yet</li>
-          </ul>
-          <div id="gmInfo" class="gm-info">
-            <span>👑 Game Master:</span>
-            <span id="gmName">—</span>
+      <!-- Main Content -->
+      <main>
+        <!-- Left Column: Players & Join -->
+        <section class="left-col">
+          <!-- Join Card (hidden after joining) -->
+          <div id="joinCard" class="card">
+            <h2>👋 Join the Game</h2>
+            <form id="joinForm">
+              <input
+                type="text"
+                id="playerName"
+                placeholder="Your name"
+                maxlength="20"
+                autocomplete="off"
+                required
+              />
+              <button type="submit" class="btn btn-primary full-width">
+                Join Game
+              </button>
+            </form>
+            <p class="note">First to join becomes Game Master 👑</p>
           </div>
-        </div>
 
-        <!-- GM Controls (visible only to GM) -->
-        <div id="gmPanel" class="card gm-panel hidden">
-          <h2>🎮 Game Master Controls</h2>
-          <div class="gm-section">
-            <label for="questionInput">📝 Question</label>
-            <input type="text" id="questionInput" placeholder="e.g., What is the capital of France?">
-            <label for="answerInput">🔑 Correct Answer</label>
-            <input type="text" id="answerInput" placeholder="paris">
-            <button id="setQuestionBtn" class="btn btn-secondary full-width">Set Question</button>
-          </div>
-          <div class="gm-section">
-            <button id="startGameBtn" class="btn btn-success full-width" disabled>▶ Start Round</button>
-            <p id="startHint" class="note">Set a question to enable start</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Center Column: Game Play Area -->
-      <section class="center-col">
-        <!-- Current Question Display -->
-        <div class="card question-card">
-          <div class="status-row">
-            <span id="gameStateBadge" class="badge">⏳ WAITING</span>
-            <div class="timer">
-              <span>⏱️</span>
-              <span id="timerValue">0</span><span>s</span>
+          <!-- Players List -->
+          <div class="card">
+            <h2>👥 Players <span id="playerCount">0</span></h2>
+            <ul id="playerList" class="player-list">
+              <li class="empty-msg">No players yet</li>
+            </ul>
+            <div id="gmInfo" class="gm-info">
+              <span>👑 Game Master:</span>
+              <span id="gmName">—</span>
             </div>
           </div>
-          <div class="question-display">
-            <div class="question-label">CURRENT QUESTION</div>
-            <div id="currentQuestion" class="question-text">—</div>
+
+          <!-- GM Controls (visible only to GM) -->
+          <div id="gmPanel" class="card gm-panel hidden">
+            <h2>🎮 Game Master Controls</h2>
+            <div class="gm-section">
+              <label for="questionInput">📝 Question</label>
+              <input
+                type="text"
+                id="questionInput"
+                placeholder="e.g., What is the capital of France?"
+              />
+              <label for="answerInput">🔑 Correct Answer</label>
+              <input type="text" id="answerInput" placeholder="paris" />
+              <button id="setQuestionBtn" class="btn btn-secondary full-width">
+                Set Question
+              </button>
+            </div>
+            <div class="gm-section">
+              <button
+                id="startGameBtn"
+                class="btn btn-success full-width"
+                disabled
+              >
+                ▶ Start Round
+              </button>
+              <p id="startHint" class="note">Set a question to enable start</p>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Guess Panel (visible only when game active and not GM) -->
-        <div id="guessPanel" class="card guess-panel hidden">
-          <h2>💬 Your Guess</h2>
-          <div class="attempts">
-            Attempts: <span id="attemptsUsed">0</span> / <span id="maxAttempts">3</span>
+        <!-- Center Column: Game Play Area -->
+        <section class="center-col">
+          <!-- Current Question Display -->
+          <div class="card question-card">
+            <div class="status-row">
+              <span id="gameStateBadge" class="badge">⏳ WAITING</span>
+              <div class="timer">
+                <span>⏱️</span>
+                <span id="timerValue">0</span><span>s</span>
+              </div>
+            </div>
+            <div class="question-display">
+              <div class="question-label">CURRENT QUESTION</div>
+              <div id="currentQuestion" class="question-text">—</div>
+            </div>
           </div>
-          <form id="guessForm">
-            <input type="text" id="guessInput" placeholder="Type your answer here" autocomplete="off" disabled>
-            <button type="submit" class="btn btn-primary full-width" disabled>Submit Guess</button>
-          </form>
-          <p id="guessMessage" class="note"></p>
-        </div>
 
-        <!-- Winner Message (shown to winner) -->
-        <div id="winnerMessage" class="card winner-message hidden">
-          <h2>🎉 Congratulations!</h2>
-          <p>You won this round! +10 points</p>
-        </div>
-      </section>
-
-      <!-- Right Column: Event Log -->
-      <section class="right-col">
-        <div class="card log-card">
-          <div class="card-header">
-            <h2>📋 Activity</h2>
-            <button id="clearLogBtn" class="text-btn">Clear</button>
+          <!-- Guess Panel (visible only when game active and not GM) -->
+          <div id="guessPanel" class="card guess-panel hidden">
+            <h2>💬 Your Guess</h2>
+            <div class="attempts">
+              Attempts: <span id="attemptsUsed">0</span> /
+              <span id="maxAttempts">3</span>
+            </div>
+            <form id="guessForm">
+              <input
+                type="text"
+                id="guessInput"
+                placeholder="Type your answer here"
+                autocomplete="off"
+                disabled
+              />
+              <button type="submit" class="btn btn-primary full-width" disabled>
+                Submit Guess
+              </button>
+            </form>
+            <p id="guessMessage" class="note"></p>
           </div>
-          <div id="eventLog" class="log-container">
-            <div class="log-entry">🟢 Welcome! Enter your name to join.</div>
+
+          <!-- Winner Message (shown to winner) -->
+          <div id="winnerMessage" class="card winner-message hidden">
+            <h2>🎉 Congratulations!</h2>
+            <p>You won this round! +10 points</p>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
 
-    <footer>
-      <span>GuessMaster · Simple Party Game</span>
-    </footer>
-  </div>
+        <!-- Right Column: Event Log -->
+        <section class="right-col">
+          <div class="card log-card">
+            <div class="card-header">
+              <h2>📋 Activity</h2>
+              <button id="clearLogBtn" class="text-btn">Clear</button>
+            </div>
+            <div id="eventLog" class="log-container">
+              <div class="log-entry">🟢 Welcome! Enter your name to join.</div>
+            </div>
+          </div>
+        </section>
+      </main>
 
-  <template id="playerTemplate">
-    <li class="player-item">
-      <span class="player-name"></span>
-      <span class="player-score"></span>
-      <span class="crown" title="Game Master">👑</span>
-    </li>
-  </template>
+      <footer>
+        <span>GuessMaster · Simple Party Game</span>
+      </footer>
+    </div>
 
-  <script src="./client.js"></script>
-</body>
+    <template id="playerTemplate">
+      <li class="player-item">
+        <span class="player-name"></span>
+        <span class="player-score"></span>
+        <span class="crown" title="Game Master">👑</span>
+      </li>
+    </template>
+
+    <script src="client.js"></script>
+  </body>
 </html>
