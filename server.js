@@ -2,7 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
-const GameSession = require('./src/gameSession');
+const GameSession = require('./src/GameSession');
 
 const { PORT } = require('./config/constants');
 
