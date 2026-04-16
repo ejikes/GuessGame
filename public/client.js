@@ -19,15 +19,14 @@ const elements = {
   gameStateBadge: document.getElementById('gameStateBadge'),
   timerValue: document.getElementById('timerValue'),
   currentQuestion: document.getElementById('currentQuestion'),
-  guessPanel: document.getElementById('guessPanel'),
+  guessArea: document.getElementById('guessArea'),
   guessForm: document.getElementById('guessForm'),
   guessInput: document.getElementById('guessInput'),
   guessMessage: document.getElementById('guessMessage'),
   attemptsUsed: document.getElementById('attemptsUsed'),
   maxAttempts: document.getElementById('maxAttempts'),
-  winnerMessage: document.getElementById('winnerMessage'),
-  eventLog: document.getElementById('eventLog'),
-  clearLogBtn: document.getElementById('clearLogBtn')
+  winnerToast: document.getElementById('winnerToast'),
+  chatMessages: document.getElementById('chatMessages')
 };
 
 const playerTemplate = document.getElementById('playerTemplate');
@@ -40,27 +39,22 @@ let maxAttempts = 3;
 let attemptsLeft = maxAttempts;
 
 // Helpers
-function addLog(msg) {
-  const entry = document.createElement('div');
-  entry.className = 'log-entry';
-  entry.textContent = msg;
-  elements.eventLog.appendChild(entry);
-  elements.eventLog.scrollTop = elements.eventLog.scrollHeight;
+function addChatMessage(text, type = 'normal') {
+  const msg = document.createElement('div');
+  msg.className = `message ${type}`;
+  msg.textContent = text;
+  elements.chatMessages.appendChild(msg);
+  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
 }
 
 function updateConnection(connected) {
-  if (connected) {
-    elements.statusDot.classList.add('connected');
-    elements.statusText.textContent = 'Connected';
-  } else {
-    elements.statusDot.classList.remove('connected');
-    elements.statusText.textContent = 'Disconnected';
-  }
+  elements.statusDot.classList.toggle('connected', connected);
+  elements.statusText.textContent = connected ? 'Connected' : 'Disconnected';
 }
 
 function renderPlayers(players) {
   elements.playerList.innerHTML = '';
-  if (!players || players.length === 0) {
+  if (!players?.length) {
     elements.playerList.innerHTML = '<li class="empty-msg">No players yet</li>';
     elements.playerCount.textContent = '0';
     elements.gmName.textContent = '—';
@@ -88,22 +82,24 @@ function renderPlayers(players) {
 }
 
 function updateUIBasedOnRole() {
-  if (localPlayer.isGM && localPlayer.joined) {
-    elements.gmPanel.classList.remove('hidden');
-  } else {
-    elements.gmPanel.classList.add('hidden');
-  }
+  // Join card visibility
+  elements.joinCard.classList.toggle('hidden', localPlayer.joined);
   
-  if (!localPlayer.isGM && localPlayer.joined && gameState === 'in_progress') {
-    elements.guessPanel.classList.remove('hidden');
+  // GM panel
+  elements.gmPanel.classList.toggle('hidden', !(localPlayer.isGM && localPlayer.joined));
+  
+  // Guess area
+  const showGuess = !localPlayer.isGM && localPlayer.joined && gameState === 'in_progress';
+  elements.guessArea.classList.toggle('hidden', !showGuess);
+  if (showGuess) {
     elements.guessInput.disabled = false;
     elements.guessForm.querySelector('button').disabled = false;
   } else {
-    elements.guessPanel.classList.add('hidden');
     elements.guessInput.disabled = true;
     elements.guessForm.querySelector('button').disabled = true;
   }
   
+  // Start button state
   if (localPlayer.isGM) {
     elements.startGameBtn.disabled = !questionSet || gameState === 'in_progress';
     elements.startHint.textContent = questionSet ? 'Ready to start!' : 'Set a question first';
@@ -112,21 +108,18 @@ function updateUIBasedOnRole() {
 
 function updateGameState(state) {
   gameState = state;
+  elements.gameStateBadge.textContent = state === 'in_progress' ? '🎮 IN PROGRESS' : '⏳ WAITING';
+  elements.gameStateBadge.classList.toggle('in-progress', state === 'in_progress');
+  
   if (state === 'in_progress') {
-    elements.gameStateBadge.textContent = '🎮 IN PROGRESS';
-    elements.gameStateBadge.classList.add('in-progress');
     attemptsLeft = maxAttempts;
     elements.attemptsUsed.textContent = '0';
-    elements.winnerMessage.classList.add('hidden');
+    elements.winnerToast.classList.add('hidden');
     elements.guessMessage.textContent = '';
-  } else {
-    elements.gameStateBadge.textContent = '⏳ WAITING';
-    elements.gameStateBadge.classList.remove('in-progress');
   }
   updateUIBasedOnRole();
 }
 
-// Helper to extract question from message (fallback)
 function extractQuestionFromMessage(msg) {
   const match = msg.match(/"([^"]+)"/);
   return match ? match[1] : null;
@@ -135,58 +128,54 @@ function extractQuestionFromMessage(msg) {
 // Socket Events
 socket.on('connect', () => {
   updateConnection(true);
-  addLog('🟢 Connected to server');
+  addChatMessage('🟢 Connected to server', 'system');
 });
 socket.on('disconnect', () => {
   updateConnection(false);
-  addLog('🔴 Disconnected');
+  addChatMessage('🔴 Disconnected', 'system');
   localPlayer.joined = false;
-  elements.joinCard.classList.remove('hidden');
+  updateUIBasedOnRole();
 });
 socket.on('player_connected', data => { localPlayer.id = data.id; });
-socket.on('join_error', data => { alert(data.message); addLog(`❌ ${data.message}`); });
+socket.on('join_error', data => { 
+  alert(data.message); 
+  addChatMessage(`❌ ${data.message}`, 'system');
+});
 socket.on('player_joined', event => {
-  addLog(event.message);
+  addChatMessage(event.message);
   if (event.data) renderPlayers(event.data.players);
   if (event.data?.players?.some(p => p.id === localPlayer.id)) {
     localPlayer.joined = true;
-    elements.joinCard.classList.add('hidden');
   }
 });
 socket.on('player_left', event => {
-  addLog(event.message);
+  addChatMessage(event.message);
   if (event.data) renderPlayers(event.data);
 });
 socket.on('question_created', event => {
-  addLog(event.message);
+  addChatMessage(event.message);
   questionSet = true;
-  
-  // Get question from data (server should send it) or fallback to parsing message
-  let questionText = event.data?.question || extractQuestionFromMessage(event.message) || 'Set';
-  elements.currentQuestion.textContent = questionText;
-  
+  const q = event.data?.question || extractQuestionFromMessage(event.message) || 'Set';
+  elements.currentQuestion.textContent = q;
   if (localPlayer.isGM) {
     elements.startGameBtn.disabled = false;
     elements.startHint.textContent = 'Ready to start!';
   }
 });
 socket.on('game_started', event => {
-  addLog(event.message);
+  addChatMessage(event.message);
   updateGameState('in_progress');
-  
-  // Update question display from data or fallback
-  let questionText = event.data?.question || extractQuestionFromMessage(event.message);
-  if (questionText) {
-    elements.currentQuestion.textContent = questionText;
-  }
+  const q = event.data?.question || extractQuestionFromMessage(event.message);
+  if (q) elements.currentQuestion.textContent = q;
 });
 socket.on('time', event => {
-  // FIXED: event is an object with .message containing the seconds string
   elements.timerValue.textContent = event.message || '0';
 });
-socket.on('guess', event => { addLog(event.message); });
+socket.on('guess', event => {
+  addChatMessage(event.message);
+});
 socket.on('round_ended', event => {
-  addLog(event.message);
+  addChatMessage(event.message, 'winner');
   updateGameState('waiting');
   questionSet = false;
   elements.currentQuestion.textContent = '—';
@@ -198,15 +187,18 @@ socket.on('round_ended', event => {
   }
 });
 socket.on('new_game_master', event => {
-  addLog(event.message);
+  addChatMessage(event.message);
   if (event.data) renderPlayers(event.data);
 });
 socket.on('you_won', data => {
-  addLog(`🎉 ${data.message}`);
-  elements.winnerMessage.classList.remove('hidden');
-  setTimeout(() => elements.winnerMessage.classList.add('hidden'), 5000);
+  addChatMessage(`🎉 ${data.message}`, 'winner');
+  elements.winnerToast.classList.remove('hidden');
+  setTimeout(() => elements.winnerToast.classList.add('hidden'), 4000);
 });
-socket.on('error', data => { alert(data.message); addLog(`⚠️ ${data.message}`); });
+socket.on('error', data => {
+  alert(data.message);
+  addChatMessage(`⚠️ ${data.message}`, 'system');
+});
 
 // UI Listeners
 elements.joinForm.addEventListener('submit', e => {
@@ -222,9 +214,9 @@ elements.setQuestionBtn.addEventListener('click', () => {
   if (!q || !a) return alert('Please fill both fields');
   socket.emit('create_question', { question: q, answer: a });
   elements.currentQuestion.textContent = q;
-  addLog(`📝 Question set: "${q}"`);
+  addChatMessage(`📝 Question set: "${q}"`);
 });
-elements.startGameBtn.addEventListener('click', () => { socket.emit('start_game'); });
+elements.startGameBtn.addEventListener('click', () => socket.emit('start_game'));
 elements.guessForm.addEventListener('submit', e => {
   e.preventDefault();
   const guess = elements.guessInput.value.trim();
@@ -246,7 +238,6 @@ socket.on('game_started', () => {
   elements.guessForm.querySelector('button').disabled = false;
   elements.guessMessage.textContent = '';
 });
-elements.clearLogBtn.addEventListener('click', () => { elements.eventLog.innerHTML = ''; addLog('📋 Log cleared'); });
 
 // Init
 updateConnection(socket.connected);
