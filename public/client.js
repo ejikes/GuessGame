@@ -26,7 +26,8 @@ const elements = {
   attemptsUsed: document.getElementById('attemptsUsed'),
   maxAttempts: document.getElementById('maxAttempts'),
   winnerToast: document.getElementById('winnerToast'),
-  chatMessages: document.getElementById('chatMessages')
+  chatMessages: document.getElementById('chatMessages'),
+  togglePlayerListBtn: document.getElementById('togglePlayerListBtn')
 };
 
 const playerTemplate = document.getElementById('playerTemplate');
@@ -37,6 +38,7 @@ let gameState = 'waiting';
 let questionSet = false;
 let maxAttempts = 3;
 let attemptsLeft = maxAttempts;
+let playerListCollapsed = false;
 
 // Helpers
 function addChatMessage(text, type = 'normal') {
@@ -85,8 +87,16 @@ function updateUIBasedOnRole() {
   // Join card visibility
   elements.joinCard.classList.toggle('hidden', localPlayer.joined);
   
-  // GM panel
-  elements.gmPanel.classList.toggle('hidden', !(localPlayer.isGM && localPlayer.joined));
+  // GM panel visibility and positioning
+  const isGM = localPlayer.isGM && localPlayer.joined;
+  elements.gmPanel.classList.toggle('hidden', !isGM);
+  
+  if (isGM) {
+    // Move GM panel to the top of sidebar (before player list card)
+    const sidebar = document.querySelector('.sidebar');
+    const playerCard = elements.playerList.closest('.sidebar-card');
+    sidebar.insertBefore(elements.gmPanel, playerCard);
+  }
   
   // Guess area
   const showGuess = !localPlayer.isGM && localPlayer.joined && gameState === 'in_progress';
@@ -125,6 +135,14 @@ function extractQuestionFromMessage(msg) {
   return match ? match[1] : null;
 }
 
+// Collapsible player list toggle
+elements.togglePlayerListBtn.addEventListener('click', () => {
+  playerListCollapsed = !playerListCollapsed;
+  elements.playerList.classList.toggle('collapsed', playerListCollapsed);
+  elements.togglePlayerListBtn.classList.toggle('collapsed', playerListCollapsed);
+  elements.togglePlayerListBtn.textContent = playerListCollapsed ? '▶' : '▼';
+});
+
 // Socket Events
 socket.on('connect', () => {
   updateConnection(true);
@@ -150,7 +168,10 @@ socket.on('player_joined', event => {
 });
 socket.on('player_left', event => {
   addChatMessage(event.message);
-  if (event.data) renderPlayers(event.data);
+  if (event.data) {
+    renderPlayers(event.data);
+    updateUIBasedOnRole();
+  }
 });
 socket.on('question_created', event => {
   addChatMessage(event.message);
@@ -189,6 +210,7 @@ socket.on('round_ended', event => {
 socket.on('new_game_master', event => {
   addChatMessage(event.message);
   if (event.data) renderPlayers(event.data);
+  setTimeout(() => updateUIBasedOnRole(), 0);
 });
 socket.on('you_won', data => {
   addChatMessage(`🎉 ${data.message}`, 'winner');

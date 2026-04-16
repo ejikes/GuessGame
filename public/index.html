@@ -29,17 +29,6 @@
     <div class="main-layout">
       <!-- Sidebar: Players -->
       <aside class="sidebar">
-        <div class="sidebar-card">
-          <h2>👥 Players <span id="playerCount">0</span></h2>
-          <ul id="playerList" class="player-list">
-            <li class="empty-msg">No players yet</li>
-          </ul>
-          <div id="gmInfo" class="gm-info">
-            <span>👑 Game Master:</span>
-            <span id="gmName">—</span>
-          </div>
-        </div>
-
         <!-- Join Form (if not joined) -->
         <div id="joinCard" class="sidebar-card">
           <h2>👋 Join</h2>
@@ -50,7 +39,7 @@
           <p class="note">First to join becomes GM</p>
         </div>
 
-        <!-- GM Panel (collapsible) -->
+        <!-- GM Panel (will be moved by JS if user is GM) -->
         <div id="gmPanel" class="sidebar-card hidden">
           <h2>🎮 GM Controls</h2>
           <div class="gm-section">
@@ -63,6 +52,21 @@
           <div class="gm-section">
             <button id="startGameBtn" class="btn btn-success full-width" disabled>▶ Start Round</button>
             <p id="startHint" class="note">Set a question first</p>
+          </div>
+        </div>
+
+        <!-- Player List Card with Toggle -->
+        <div class="sidebar-card">
+          <div class="card-header-with-toggle">
+            <h2>👥 Players <span id="playerCount">0</span></h2>
+            <button id="togglePlayerListBtn" class="toggle-btn" aria-label="Toggle player list">▼</button>
+          </div>
+          <ul id="playerList" class="player-list">
+            <li class="empty-msg">No players yet</li>
+          </ul>
+          <div id="gmInfo" class="gm-info">
+            <span>👑 Game Master:</span>
+            <span id="gmName">—</span>
           </div>
         </div>
       </aside>
